@@ -75,6 +75,7 @@ public class BookListActivity extends ListActivity {
     int PROGRESS_SUCCESS = 4;
     int PROGRESS_LOGIN_FAIL = 5;
 
+    static Boolean isLoggedIn = false;
     Cursor cursor;
     ArrayList<Integer> _ids = new ArrayList<Integer>();
     ArrayList<Integer> toDeleteIds = new ArrayList<Integer>();
@@ -192,10 +193,11 @@ public class BookListActivity extends ListActivity {
             SearchHandler testSearchHandler = new SearchHandler(this);
             testSearchHandler.setIds();
             if (testSearchHandler.getIds().size() == 0) {
+                BookListActivity.setLoggedIn(false);
                 Intent in = new Intent(this, LoginActivity.class);
                 startActivity(in);
             } else {
-                
+                BookListActivity.setLoggedIn(true);
             }
         }
         
@@ -264,6 +266,14 @@ public class BookListActivity extends ListActivity {
 
         ImportBooksTask task = new ImportBooksTask();
         task.execute(csvData);
+    }
+
+    public static void setLoggedIn(Boolean loggedIn) {
+        BookListActivity.isLoggedIn = loggedIn;
+    }
+
+    public static boolean getLoggedIn(){
+        return BookListActivity.isLoggedIn;
     }
 
     public class EntryParser implements CSVEntryParser<String[]> {
@@ -413,6 +423,7 @@ public class BookListActivity extends ListActivity {
                                     DbHelperNew dbHelper = new DbHelperNew(
                                             getApplicationContext());
                                     dbHelper.delete();
+                                    BookListActivity.setLoggedIn(false);
                                     loadList();
                                 }
 
@@ -520,7 +531,7 @@ public class BookListActivity extends ListActivity {
     }
     
     private class LTLoginDownload extends AsyncTask<Boolean, Integer, String> {
-        String result;        
+        String result;
         ProgressDialog dialog;
 
         
@@ -543,7 +554,8 @@ public class BookListActivity extends ListActivity {
         protected void onProgressUpdate(Integer... progUpdate) {
             String METHOD = ".LTLoginDownload.onProgressUpdate()";
             
-            if (progUpdate[0] == PROGRESS_LOGGED_IN){  
+            if (progUpdate[0] == PROGRESS_LOGGED_IN){
+               BookListActivity.setLoggedIn(true);
                dialog.setMessage("Successfully logged in. Now downloading your library.");
                if (!sharedPref.getBoolean("lt_remember_credentials", false)) {
                    prefsEdit = sharedPref.edit();
@@ -557,8 +569,10 @@ public class BookListActivity extends ListActivity {
                logger.log(TAG + METHOD, "Login failed.");
                dialog.setMessage("Login failed.");
                dialog.dismiss();
-               Intent in = new Intent(getApplicationContext(), LoginActivity.class);
-               startActivity(in);
+               if(BookListActivity.getLoggedIn() == false){
+                   Intent in = new Intent(getApplicationContext(), LoginActivity.class);
+                   startActivity(in);
+               }
            }
         }
         
@@ -592,8 +606,10 @@ public class BookListActivity extends ListActivity {
                 // TODO Auto-generated catch block
                 e.printStackTrace();
             } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                logger.log(TAG + METHOD, "Login failed.");
+                this.publishProgress(PROGRESS_LOGIN_FAIL);
+                this.cancel(true);
+                loginPost.abort();
             }
             
             String loginResponseBody = "";
@@ -603,8 +619,10 @@ public class BookListActivity extends ListActivity {
                 // TODO Auto-generated catch block
                 e1.printStackTrace();
             } catch (IOException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
+                logger.log(TAG + METHOD, "Login failed.");
+                this.publishProgress(PROGRESS_LOGIN_FAIL);
+                this.cancel(true);
+                loginPost.abort();
             }
             
             logger.log(TAG + METHOD, "loginResponseBody=" + loginResponseBody);
